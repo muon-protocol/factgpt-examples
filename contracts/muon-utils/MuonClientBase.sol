@@ -18,9 +18,6 @@ contract MuonClientBase is SchnorrSECP256K1Verifier{
 
     event MuonTX(bytes reqId, PublicKey pubKey);
 
-    uint256 public muonAppId;
-    PublicKey public muonPublicKey;
-
     function muonVerify(
         bytes calldata reqId,
         uint256 hash, 
