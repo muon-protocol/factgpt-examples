@@ -2,11 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 import "./muon-utils/MuonClientBase.sol";
 
 contract SimplePredictionMarket is MuonClientBase {
     using ECDSA for bytes32;
+    using Strings for string;
 
     // Muon App settings for FactGPT app
     uint256 public muonAppId;
@@ -139,16 +141,19 @@ contract SimplePredictionMarket is MuonClientBase {
      * If the dispute is accepted, the outcome will change.
      */
     function disputeResolve(
+        string memory snapshotId,
         bool accepted,
         bytes calldata reqId,
         SchnorrSign calldata muonSignature
     ) public{
         require(disputed && !disputeResolved, "Not disputed");
+        require(snapshotId.equal(disputeSnapshotId), "Invalid snapshotId");
         //TODO: set and check a period to resolve the dispute
         bytes32 hash = keccak256(
             abi.encodePacked(
                 disputeMuonAppId,
                 reqId,
+                snapshotId,
                 accepted
             )
         );
