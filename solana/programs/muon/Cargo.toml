@@ -1,0 +1,27 @@
+[package]
+name = "muon"
+version = "0.1.0"
+description = "Created with Anchor"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "muon"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.29.0"
+getrandom = { version = "0.2.2", features = ["custom"] }
+primitive-types = "0.10.1"
+borsh = "0.9.1"
+borsh-derive = "0.9.1"
+sha3 = "0.9.1"
+hex-literal = "0.3.4"
+solana-program = "1.10.38"
+thiserror = "1.0.30"
