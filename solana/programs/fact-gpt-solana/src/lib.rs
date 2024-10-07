@@ -1,4 +1,4 @@
-use anchor_lang::prelude::*;
+use anchor_lang::{prelude::*, solana_program};
 use muon::{
     types::*,
     self,
@@ -8,6 +8,7 @@ use muon::cpi::accounts::Initialize as MuonInitialize;
 use muon::cpi::verify;
 use sha3::{Digest, Keccak256};
 use primitive_types::U256 as u256;
+use solana_program::clock::Clock;
 
 
 declare_id!("EciTmTmvfdp8rcJurZ43r7thhnvhZPfA3ChJ8nuYqsC1");
@@ -26,6 +27,8 @@ pub mod fact_gpt_solana {
         let muon_info = &mut ctx.accounts.muon_info;
 
         state_account.owner = owner;
+        state_account.prompt = String::from("Was Trump the winner of the US election 2024?");
+        state_account.outcome_date = 1730838599;
         muon_info.app_info = muon_app_info;
         muon_info.program_id = muon_program;
 
@@ -39,7 +42,14 @@ pub mod fact_gpt_solana {
         req_id: MuonRequestId, 
         sign: SchnorrSign,
     ) -> Result<()> {
+        let state_account = &mut ctx.accounts.state_account;
+
+        let clock = Clock::get()?;
+        let current_timestamp = clock.unix_timestamp;
+        require!(i64::from(state_account.outcome_date) > current_timestamp, OutcomeError::OutcomeDate);
+        
         let muon_info = &mut ctx.accounts.muon_info;
+
         let cpi_ctx = CpiContext::new(
             ctx.accounts.muon_program.to_account_info(),
             MuonInitialize {
@@ -60,7 +70,11 @@ pub mod fact_gpt_solana {
         let result = hasher.finalize();
 
         let msg_hash = u256::from(&result[..]);
-        return verify(cpi_ctx, req_id, U256Wrap { val: msg_hash }, sign, muon_info.app_info.group_pub_key);
+        let _ = verify(cpi_ctx, req_id, U256Wrap { val: msg_hash }, sign, muon_info.app_info.group_pub_key);
+
+        state_account.outcome = outcome;
+
+        Ok(())
     }
 }
 
@@ -69,6 +83,9 @@ pub mod fact_gpt_solana {
 pub struct StateAccount {
     pub initialized: bool,
     pub owner: Pubkey,
+    pub prompt: String,
+    pub outcome: bool,
+    pub outcome_date: u32
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, PartialEq, Debug, Clone)]
@@ -88,7 +105,7 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = owner,
-        space = 1 + 32 + 8, // Extra 8 bytes for the account discriminator that anchor adds 
+        space = 1 + 32 + 4 + 100 + 1 + 4 + 8, // Extra 8 bytes for the account discriminator that anchor adds 
         seeds = [
             b"state_account"
         ],
@@ -109,6 +126,14 @@ pub struct Initialize<'info> {
 #[derive(Accounts)]
 pub struct SetOutcome<'info> {
     #[account(
+        mut,
+        seeds = [
+            b"state_account"
+        ],
+        bump,
+    )]
+    pub state_account: Account<'info, StateAccount>,
+    #[account(
         seeds = [b"muon_info"],
         bump,
     )]
@@ -120,3 +145,8 @@ pub struct SetOutcome<'info> {
     pub system_program: Program<'info, System>
 }
 
+#[error_code]
+pub enum OutcomeError {
+    #[msg("OUTCOME_DATE_IS_NOT_PASSED")]
+    OutcomeDate,
+}
